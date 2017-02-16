@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.1.0" default-activation="eager">
+
+  <reference id="connectionFactory" interface="javax.jms.ConnectionFactory" />
+
+  <reference id="NCNEXUSMergeVCWorkflowBeanService" interface="edu.unc.mapseq.workflow.WorkflowBeanService"
+    component-name="NCNEXUSMergeVCWorkflowBeanService" />
+
+  <bean id="NCNEXUSMergeVCMessageListener" class="edu.unc.mapseq.messaging.ncnexus.mergevc.NCNEXUSMergeVCMessageListener">
+    <property name="workflowBeanService" ref="NCNEXUSMergeVCWorkflowBeanService" />
+    <property name="workflowName" value="NCNEXUSMergeBAM" />
+  </bean>
+
+  <bean id="NCNEXUSMergeVCMessageService" class="edu.unc.mapseq.messaging.ncnexus.mergevc.NCNEXUSMergeVCMessageService"
+    init-method="start" destroy-method="stop" activation="eager">
+    <property name="connectionFactory" ref="connectionFactory" />
+    <property name="messageListener" ref="NCNEXUSMergeVCMessageListener" />
+    <property name="destinationName" value="queue/ncnexus.merge.vc" />
+  </bean>
+
+</blueprint>
