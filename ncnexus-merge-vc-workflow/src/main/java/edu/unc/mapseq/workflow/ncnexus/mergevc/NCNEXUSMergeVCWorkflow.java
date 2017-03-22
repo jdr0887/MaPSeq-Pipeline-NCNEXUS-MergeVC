@@ -48,6 +48,8 @@ import edu.unc.mapseq.module.sequencing.samtools.SAMToolsDepthCLI;
 import edu.unc.mapseq.module.sequencing.samtools.SAMToolsFlagstatCLI;
 import edu.unc.mapseq.module.sequencing.samtools.SAMToolsIndexCLI;
 import edu.unc.mapseq.module.sequencing.vcflib.MergeVCFCLI;
+import edu.unc.mapseq.module.sequencing.vcflib.SortAndRemoveDuplicatesCLI;
+import edu.unc.mapseq.module.sequencing.vcflib.VCFFilterCLI;
 import edu.unc.mapseq.workflow.WorkflowException;
 import edu.unc.mapseq.workflow.core.WorkflowJobFactory;
 import edu.unc.mapseq.workflow.core.WorkflowUtil;
@@ -371,8 +373,30 @@ public class NCNEXUSMergeVCWorkflow extends AbstractSequencingWorkflow {
             }
 
             // new job
+            builder = SequencingWorkflowJobFactory.createJob(++count, VCFFilterCLI.class, attempt.getId()).siteName(siteName);
+            File vcfFilterOutput = new File(subjectDirectory, mergeVCFOutput.getName().replace(".vcf", ".filtered.vcf"));
+            // need to do character conversion since vcffilter uses spaces & commons cli does not work will with spaces
+            builder.addArgument(VCFFilterCLI.INPUT, mergeVCFOutput.getAbsolutePath())
+                    .addArgument(VCFFilterCLI.OUTPUT, vcfFilterOutput.getAbsolutePath()).addArgument(VCFFilterCLI.INFOFILTER, "QUAL_>_10")
+                    .addArgument(VCFFilterCLI.INFOFILTER, "DP_>_5");
+            CondorJob vcfFilterJob = builder.build();
+            logger.info(vcfFilterJob.toString());
+            graph.addVertex(vcfFilterJob);
+            graph.addEdge(mergeVCFJob, vcfFilterJob);
+
+            // new job
+            builder = SequencingWorkflowJobFactory.createJob(++count, SortAndRemoveDuplicatesCLI.class, attempt.getId()).siteName(siteName);
+            File sortAndRemoveDuplicatesOutput = new File(subjectDirectory, vcfFilterOutput.getName().replace(".vcf", ".srd.vcf"));
+            builder.addArgument(SortAndRemoveDuplicatesCLI.INPUT, vcfFilterOutput.getAbsolutePath()).addArgument(SortAndRemoveDuplicatesCLI.OUTPUT,
+                    sortAndRemoveDuplicatesOutput.getAbsolutePath());
+            CondorJob sortAndRemoveDuplicatesJob = builder.build();
+            logger.info(sortAndRemoveDuplicatesJob.toString());
+            graph.addVertex(sortAndRemoveDuplicatesJob);
+            graph.addEdge(vcfFilterJob, sortAndRemoveDuplicatesJob);
+
+            // new job
             builder = SequencingWorkflowJobFactory.createJob(++count, PicardSortVCFCLI.class, attempt.getId()).siteName(siteName);
-            File picardSortVCFOutput = new File(subjectDirectory, picardMarkDuplicatesOutput.getName().replace(".bam", ".sorted.vcf"));
+            File picardSortVCFOutput = new File(subjectDirectory, sortAndRemoveDuplicatesOutput.getName().replace(".bam", ".ps.vcf"));
             builder.addArgument(PicardSortVCFCLI.INPUT, mergeVCFOutput.getAbsolutePath()).addArgument(PicardSortVCFCLI.OUTPUT,
                     picardSortVCFOutput.getAbsolutePath());
             CondorJob picardSortVCFJob = builder.build();
@@ -382,7 +406,7 @@ public class NCNEXUSMergeVCWorkflow extends AbstractSequencingWorkflow {
 
             // new job
             builder = SequencingWorkflowJobFactory.createJob(++count, GATKVariantAnnotatorCLI.class, attempt.getId()).siteName(siteName);
-            File gatkVariantAnnotatorOutput = new File(subjectDirectory, picardMarkDuplicatesOutput.getName().replace(".bam", ".sorted.va.vcf"));
+            File gatkVariantAnnotatorOutput = new File(subjectDirectory, picardSortVCFOutput.getName().replace(".vcf", ".va.vcf"));
             builder.addArgument(GATKVariantAnnotatorCLI.VCF, picardSortVCFOutput.getAbsolutePath())
                     .addArgument(GATKVariantAnnotatorCLI.ANNOTATION, "FisherStrand").addArgument(GATKVariantAnnotatorCLI.ANNOTATION, "QualByDepth")
                     .addArgument(GATKVariantAnnotatorCLI.ANNOTATION, "ReadPosRankSumTest")
@@ -401,7 +425,7 @@ public class NCNEXUSMergeVCWorkflow extends AbstractSequencingWorkflow {
             // new job
             builder = SequencingWorkflowJobFactory.createJob(++count, FilterVariantCLI.class, attempt.getId()).siteName(siteName)
                     .numberOfProcessors(2);
-            File filterVariantOutput = new File(subjectDirectory, picardMarkDuplicatesOutput.getName().replace(".bam", ".sorted.va.ic_snps.vcf"));
+            File filterVariantOutput = new File(subjectDirectory, picardSortVCFOutput.getName().replace(".vcf", ".ic_snps.vcf"));
             builder.addArgument(FilterVariantCLI.INTERVALLIST, icSNPIntervalList)
                     .addArgument(FilterVariantCLI.INPUT, gatkVariantAnnotatorOutput.getAbsolutePath())
                     .addArgument(FilterVariantCLI.OUTPUT, filterVariantOutput.getAbsolutePath());
