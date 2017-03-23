@@ -9,7 +9,7 @@
 
   <bean id="NCNEXUSMergeVCMessageListener" class="edu.unc.mapseq.messaging.ncnexus.mergevc.NCNEXUSMergeVCMessageListener">
     <property name="workflowBeanService" ref="NCNEXUSMergeVCWorkflowBeanService" />
-    <property name="workflowName" value="NCNEXUSMergeBAM" />
+    <property name="workflowName" value="NCNEXUSMergeVC" />
   </bean>
 
   <bean id="NCNEXUSMergeVCMessageService" class="edu.unc.mapseq.messaging.ncnexus.mergevc.NCNEXUSMergeVCMessageService"
