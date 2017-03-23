@@ -292,7 +292,8 @@ public class NCNEXUSMergeVCWorkflow extends AbstractSequencingWorkflow {
             // new job
             builder = SequencingWorkflowJobFactory.createJob(++count, ZipCLI.class, attempt.getId()).siteName(siteName);
             File zipOut = new File(subjectDirectory, picardMarkDuplicatesOutput.getName().replace(".bam", ".zip"));
-            builder.addArgument(ZipCLI.ENTRY, picardMarkDuplicatesOutput.getAbsolutePath())
+            builder.addArgument(ZipCLI.WORKDIR, subjectDirectory.getAbsolutePath())
+                    .addArgument(ZipCLI.ENTRY, picardMarkDuplicatesOutput.getAbsolutePath())
                     .addArgument(ZipCLI.ENTRY, samtoolsIndexOutput.getAbsolutePath()).addArgument(ZipCLI.OUTPUT, zipOut.getAbsolutePath());
             CondorJob zipJob = builder.build();
             logger.info(zipJob.toString());
