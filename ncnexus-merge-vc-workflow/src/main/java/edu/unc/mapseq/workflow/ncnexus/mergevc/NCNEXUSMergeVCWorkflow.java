@@ -176,9 +176,9 @@ public class NCNEXUSMergeVCWorkflow extends AbstractSequencingWorkflow {
 
             Workflow baselineWorkflow = null;
             try {
-                List<Workflow> workflowList = getWorkflowBeanService().getMaPSeqDAOBeanService().getWorkflowDAO().findByName("NCNEXUSBaseline");
+                List<Workflow> workflowList = getWorkflowBeanService().getMaPSeqDAOBeanService().getWorkflowDAO().findByName("NCNEXUSAlignment");
                 if (CollectionUtils.isEmpty(workflowList)) {
-                    throw new WorkflowException("Could not find NCNEXUSBaseline workflow");
+                    throw new WorkflowException("Could not find NCNEXUSAlignment workflow");
                 }
                 baselineWorkflow = workflowList.get(0);
             } catch (MaPSeqDAOException e1) {
