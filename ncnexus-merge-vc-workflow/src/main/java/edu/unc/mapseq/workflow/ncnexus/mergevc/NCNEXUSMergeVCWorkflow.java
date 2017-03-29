@@ -9,6 +9,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
@@ -21,7 +22,7 @@ import org.renci.jlrm.condor.CondorJobEdge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.unc.mapseq.commons.ncnexus.mergevc.SaveFlagstatAttributesRunnable;
+import edu.unc.mapseq.commons.ncnexus.mergevc.RegisterToIRODSRunnable;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.model.Attribute;
 import edu.unc.mapseq.dao.model.FileData;
@@ -105,12 +106,10 @@ public class NCNEXUSMergeVCWorkflow extends AbstractSequencingWorkflow {
                 logger.info(sample.toString());
 
                 Set<Attribute> sampleAttributes = sample.getAttributes();
-                if (sampleAttributes != null && !sampleAttributes.isEmpty()) {
-                    for (Attribute attribute : sampleAttributes) {
-                        if (attribute.getName().equals("subjectName")) {
-                            subjectNameSet.add(attribute.getValue());
-                            break;
-                        }
+                if (CollectionUtils.isNotEmpty(sampleAttributes)) {
+                    Optional<Attribute> foundAttribute = sampleAttributes.stream().filter(a -> "subjectName".equals(a.getName())).findFirst();
+                    if (foundAttribute.isPresent()) {
+                        subjectNameSet.add(foundAttribute.get().getValue());
                     }
                 }
             }
@@ -457,28 +456,18 @@ public class NCNEXUSMergeVCWorkflow extends AbstractSequencingWorkflow {
 
     @Override
     public void postRun() throws WorkflowException {
+        logger.info("ENTERING postRun()");
         super.postRun();
-
-        Set<Sample> sampleSet = SequencingWorkflowUtil.getAggregatedSamples(getWorkflowBeanService().getMaPSeqDAOBeanService(),
-                getWorkflowRunAttempt());
-
-        String subjectMergeHome = getWorkflowBeanService().getAttributes().get("subjectMergeHome");
-
-        for (Sample sample : sampleSet) {
-
-            if ("Undetermined".equals(sample.getBarcode())) {
-                continue;
-            }
-
-            ExecutorService es = Executors.newSingleThreadExecutor();
-
-            SaveFlagstatAttributesRunnable flagstatRunnable = new SaveFlagstatAttributesRunnable(getWorkflowBeanService().getMaPSeqDAOBeanService());
-            flagstatRunnable.setSubjectMergeHome(subjectMergeHome);
-            flagstatRunnable.setSampleId(sample.getId());
-            es.execute(flagstatRunnable);
-
+        try {
+            ExecutorService executorService = Executors.newSingleThreadExecutor();
+            RegisterToIRODSRunnable registerToIRODSRunnable = new RegisterToIRODSRunnable(getWorkflowBeanService().getMaPSeqDAOBeanService(),
+                    getWorkflowRunAttempt());
+            executorService.submit(registerToIRODSRunnable);
+            executorService.shutdown();
+            executorService.awaitTermination(1L, TimeUnit.HOURS);
+        } catch (InterruptedException e) {
+            throw new WorkflowException(e);
         }
-
     }
 
 }
